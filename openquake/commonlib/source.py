@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OpenQuake. If not, see <http://www.gnu.org/licenses/>.
 
-import copy
 import operator
 import collections
 import numpy
@@ -341,19 +340,16 @@ class CompositeSourceModel(collections.abc.Sequence):
     :param sm_rlzs:
         a list of Realization instances with attribute sm.src_groups
     """
-    def __init__(self, gsim_lt, source_model_lt, sm_rlzs, ses_seed=0,
-                 event_based=False):
-        self.gsim_lt = gsim_lt
+    def __init__(self, source_model_lt, info, ses_seed=0, event_based=False):
+        self.gsim_lt = info.gsim_lt
         self.source_model_lt = source_model_lt
-        self.sm_rlzs = sm_rlzs
-        self.info = CompositionInfo(
-            gsim_lt, self.source_model_lt.seed,
-            self.source_model_lt.num_samples, self.sm_rlzs)
+        self.sm_rlzs = info.sm_rlzs
+        self.info = info
         # extract a single source from multiple sources with the same ID
         # and regroup the sources in non-atomic groups by TRT
         atomic = []
         acc = AccumDict(accum=[])
-        get_grp_id = source_model_lt.get_grp_id(gsim_lt.values)
+        get_grp_id = source_model_lt.get_grp_id(self.gsim_lt.values)
         for sm in self.sm_rlzs:
             for grp in sm.src_groups:
                 if grp and grp.atomic:
