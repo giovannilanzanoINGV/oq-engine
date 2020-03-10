@@ -76,8 +76,8 @@ class SourceReader(object):
                 h5['sitecol'], h5['oqparam'].maximum_distance)
 
     def __call__(self, ordinal, path, apply_unc, fname, fileno, monitor):
-        sm = apply_unc(path, fname, self.converter)
-        for i, sg in enumerate(sm):
+        groups = apply_unc(path, fname, self.converter)
+        for i, sg in enumerate(groups):
             # sample a source for each group
             if os.environ.get('OQ_SAMPLE_SOURCES'):
                 sg.sources = random_filtered_sources(
@@ -87,7 +87,7 @@ class SourceReader(object):
                        if k != 'grp_id'}
                 src.checksum = zlib.adler32(pickle.dumps(dic, protocol=4))
                 src._wkt = src.wkt()
-        return dict(sm=sm, ordinal=ordinal, fileno=fileno)
+        return dict(src_groups=groups, ordinal=ordinal, fileno=fileno)
 
 
 def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
@@ -125,7 +125,7 @@ def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
             groups.append(sg)
             src = sg[0].new(sm_rlz.ordinal, sm_rlz.value)  # one source
             src.checksum = src.grp_id = src.id = grp_id
-            src.samples = sm_rlz.samples
+            src.samples = sg.samples = sm_rlz.samples
             sg.sources = [src]
         return sm_rlzs, groups
 
@@ -153,15 +153,15 @@ def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
     get_grp_id = source_model_lt.get_grp_id(gsim_lt.values)
     for dic in sorted(smap, key=operator.itemgetter('fileno')):
         eri = dic['ordinal']
-        for grp in dic['sm'].src_groups:
+        for grp in dic['src_groups']:
             for src in grp:
                 src.grp_id = get_grp_id(grp.trt, eri)
             grp.samples = sm_rlzs[eri].samples
             groups.append(grp)
-        changes += dic['sm'].changes
+            changes += grp.changes
         gsim_file = oq.inputs.get('gsim_logic_tree')
         if gsim_file:  # check TRTs
-            for src_group in dic['sm']:
+            for src_group in dic['src_groups']:
                 if src_group.trt not in gsim_lt.values:
                     raise ValueError(
                         "Found in the sources a tectonic region type %r "
