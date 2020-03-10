@@ -163,13 +163,14 @@ def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
     # various checks
     changes = 0
     get_grp_id = source_model_lt.get_grp_id(gsim_lt.values)
+    groups = [[] for sm_rlz in sm_rlzs]
     for dic in sorted(smap, key=operator.itemgetter('fileno')):
         eri = dic['ordinal']
         for grp in dic['src_groups']:
             for src in grp:
                 src.grp_id = get_grp_id(grp.trt, eri)
             grp.samples = sm_rlzs[eri].samples
-            groups.append(grp)
+            groups[eri].append(grp)
             changes += grp.changes
         gsim_file = oq.inputs.get('gsim_logic_tree')
         if gsim_file:  # check TRTs
@@ -181,7 +182,8 @@ def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
                         (src_group.trt, gsim_file))
     for sm_rlz in sm_rlzs:
         # check applyToSources
-        source_ids = set(src.source_id for grp in groups for src in grp)
+        source_ids = set(src.source_id for grp in groups[sm_rlz.ordinal]
+                         for src in grp)
         for brid, srcids in source_model_lt.info.applytosources.items():
             if brid in sm_rlz.lt_path:
                 for srcid in srcids:
@@ -194,4 +196,4 @@ def get_sm_rlzs(oq, gsim_lt, source_model_lt, h5=None):
     if changes:
         logging.info('Applied %d changes to the composite source model',
                      changes)
-    return sm_rlzs, groups
+    return sm_rlzs, sum(groups, [])
