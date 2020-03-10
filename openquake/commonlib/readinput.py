@@ -622,11 +622,12 @@ def get_composite_source_model(oqparam, h5=None):
 
     if source_model_lt.on_each_source:
         logging.info('There is a logic tree on each source')
-    sm_rlzs = get_sm_rlzs(oqparam, gsim_lt, source_model_lt, h5)
+    sm_rlzs, groups = get_sm_rlzs(oqparam, gsim_lt, source_model_lt, h5)
     info = source.CompositionInfo(
         gsim_lt, source_model_lt.seed, source_model_lt.num_samples, sm_rlzs)
     csm = source.CompositeSourceModel(
-        source_model_lt, info, oqparam.ses_seed, oqparam.is_event_based())
+        groups, source_model_lt, info, oqparam.ses_seed,
+        oqparam.is_event_based())
     if h5:
         info = hdf5.create(h5, 'source_info', source_info_dt)
     data = []

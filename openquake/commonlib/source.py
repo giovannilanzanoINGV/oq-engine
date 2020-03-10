@@ -340,7 +340,8 @@ class CompositeSourceModel(collections.abc.Sequence):
     :param sm_rlzs:
         a list of Realization instances with attribute sm.src_groups
     """
-    def __init__(self, source_model_lt, info, ses_seed=0, event_based=False):
+    def __init__(self, groups, source_model_lt, info, ses_seed=0,
+                 event_based=False):
         self.gsim_lt = info.gsim_lt
         self.source_model_lt = source_model_lt
         self.sm_rlzs = info.sm_rlzs
@@ -349,18 +350,14 @@ class CompositeSourceModel(collections.abc.Sequence):
         # and regroup the sources in non-atomic groups by TRT
         atomic = []
         acc = AccumDict(accum=[])
-        get_grp_id = source_model_lt.get_grp_id(self.gsim_lt.values)
-        for sm in self.sm_rlzs:
-            for grp in sm.src_groups:
-                if grp and grp.atomic:
-                    atomic.append(grp)
-                elif grp:
-                    acc[grp.trt].extend(grp)
-                grp_id = get_grp_id(grp.trt, sm.ordinal)
-                for src in grp:
-                    src.grp_id = grp_id
-                    if sm.samples > 1:
-                        src.samples = sm.samples
+        for grp in groups:
+            if grp and grp.atomic:
+                atomic.append(grp)
+            elif grp:
+                acc[grp.trt].extend(grp)
+            for src in grp:
+                if grp.samples > 1:
+                    src.samples = grp.samples
         dic = {}
         key = operator.attrgetter('source_id', 'checksum')
         idx = 0
