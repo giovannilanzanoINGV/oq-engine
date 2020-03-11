@@ -346,8 +346,39 @@ class BranchSet(object):
         # All filters pass, return True.
         return True
 
+    def gen_bset_values(self, ltpath):
+        """
+        :param ltpath:
+            List of branch IDs
+        :yield:
+            Pairs (bset, value)
+        """
+        bset = self
+        while True:
+            brid, ltpath = ltpath[0], ltpath[1:]
+            #if bset.uncertainty_type not in ('sourceModel', 'extendModel'):
+            yield bset, bset[brid].value
+            bset = bset[brid].bset
+            if bset is None:
+                break
+
     def __repr__(self):
         return repr(self.branches)
+
+
+def apply_to(src_groups, branchsets_and_uncertainties):
+    for sg in src_groups:
+        sg.changes = 0
+        for source in sg:
+            changes = 0
+            for bset, value in branchsets_and_uncertainties:
+                if bset.filter_source(source):
+                    apply_uncertainty(
+                        bset.uncertainty_type, source, value)
+                    changes += 1
+            if changes:  # redoing count_ruptures can be slow
+                source.num_ruptures = source.count_ruptures()
+                sg.changes += changes
 
 
 # manage the legacy logicTreeBranchingLevel nodes
@@ -806,14 +837,11 @@ class SourceModelLogicTree(object):
         [sm] = nrml.read_source_models([fname], converter)
         base_ids = set(src.source_id for sg in sm.src_groups for src in sg)
         src_groups = sm.src_groups
-        path = ltpath
         branchset = self.root_branchset
         branchsets_and_uncertainties = []
-        while branchset is not None:
-            brid, path = path[0], path[1:]
-            branch = branchset[brid]
-            if branchset.uncertainty_type == 'extendModel':
-                extname = os.path.join(dirname, branch.value)
+        for bset, value in self.root_branchset.gen_bset_values(ltpath):
+            if bset.uncertainty_type == 'extendModel':
+                extname = os.path.join(dirname, value)
                 [ext] = nrml.read_source_models([extname], converter)
                 extra_ids = set(src.source_id for sg in ext.src_groups
                                 for src in sg)
@@ -824,22 +852,9 @@ class SourceModelLogicTree(object):
                         (extname, common, sm.fname))
                 src_groups.extend(ext.src_groups)
             elif branchset.uncertainty_type != 'sourceModel':
-                branchsets_and_uncertainties.append(
-                    (branchset, branch.value))
-            branchset = branch.bset
+                branchsets_and_uncertainties.append((bset, value))
         if branchsets_and_uncertainties:
-            for sg in src_groups:
-                sg.changes = 0
-                for source in sg:
-                    changes = 0
-                    for bset, value in branchsets_and_uncertainties:
-                        if bset.filter_source(source):
-                            apply_uncertainty(
-                                bset.uncertainty_type, source, value)
-                            changes += 1
-                    if changes:  # redoing count_ruptures can be slow
-                        source.num_ruptures = source.count_ruptures()
-                        sg.changes += changes
+            apply_to(src_groups, branchsets_and_uncertainties)
         return src_groups
 
     def get_trti_eri(self):
